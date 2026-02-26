@@ -11,7 +11,14 @@ contract MockAavePool {
     uint256 public yieldBps = 500; // 5% yield by default (in basis points)
     bool public locked; // Simulate 100% utilization
 
-    function supply(address asset, uint256 amount, address onBehalfOf, uint16 /*referralCode*/ ) external {
+    function supply(
+        address asset,
+        uint256 amount,
+        address onBehalfOf,
+        uint16 /*referralCode*/
+    )
+        external
+    {
         IERC20(asset).transferFrom(msg.sender, address(this), amount);
         supplied[onBehalfOf][asset] += amount;
     }
