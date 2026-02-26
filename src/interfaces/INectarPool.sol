@@ -6,33 +6,52 @@ pragma solidity ^0.8.20;
 interface INectarPool {
     // ─── Enums ───────────────────────────────────────────────────────────────
 
-    enum PoolState { ENROLLMENT, SAVING, YIELDING, DRAWING, SETTLED, CANCELLED }
-    enum Frequency { DAILY, WEEKLY, MONTHLY }
-    enum EnrollmentWindow { STANDARD, STRICT, FIXED }
-    enum DistributionMode { EQUAL, WEIGHTED, GRAND_PRIZE }
+    enum PoolState {
+        ENROLLMENT,
+        SAVING,
+        YIELDING,
+        DRAWING,
+        SETTLED,
+        CANCELLED
+    }
+    enum Frequency {
+        DAILY,
+        WEEKLY,
+        MONTHLY
+    }
+    enum EnrollmentWindow {
+        STANDARD,
+        STRICT,
+        FIXED
+    }
+    enum DistributionMode {
+        EQUAL,
+        WEIGHTED,
+        GRAND_PRIZE
+    }
 
     // ─── Structs ─────────────────────────────────────────────────────────────
 
     struct PoolConfig {
-        address token;              // G$ or USDC
-        uint256 targetAmount;       // Pool's total savings goal
-        uint16  maxMembers;         // Max participants (3–50)
-        uint16  totalCycles;        // Number of contribution periods
-        uint16  winnersCount;       // Number of prize winners
-        uint32  cycleDuration;      // Seconds per cycle
-        bool    requiresIdentity;   // GoodDollar identity required?
+        address token; // G$ or USDC
+        uint256 targetAmount; // Pool's total savings goal
+        uint16 maxMembers; // Max participants (3–50)
+        uint16 totalCycles; // Number of contribution periods
+        uint16 winnersCount; // Number of prize winners
+        uint32 cycleDuration; // Seconds per cycle
+        bool requiresIdentity; // GoodDollar identity required?
         EnrollmentWindow enrollmentWindow;
         DistributionMode distributionMode;
     }
 
     struct MemberState {
-        uint16  joinCycle;          // The cycle number they joined on
-        uint16  cyclesPaid;         // Number of successful cycle deposits
-        uint256 assignedRate;       // Their per-cycle deposit amount
-        uint256 totalPaid;          // Cumulative deposit total
-        bool    isRemoved;          // Evicted for consecutive misses
-        bool    hasClaimed;         // Has claimed principal/yield after settlement
-        uint16  lastPaidCycle;      // The last cycle they successfully paid
+        uint16 joinCycle; // The cycle number they joined on
+        uint16 cyclesPaid; // Number of successful cycle deposits
+        uint256 assignedRate; // Their per-cycle deposit amount
+        uint256 totalPaid; // Cumulative deposit total
+        bool isRemoved; // Evicted for consecutive misses
+        bool hasClaimed; // Has claimed principal/yield after settlement
+        uint16 lastPaidCycle; // The last cycle they successfully paid
     }
 
     // ─── Events ──────────────────────────────────────────────────────────────

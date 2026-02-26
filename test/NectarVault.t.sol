@@ -15,43 +15,42 @@ import {MockGoodDollarIdentity} from "../src/MockGoodDollarIdentity.sol";
 /// @notice Unit tests for NectarVault using mocked Aave + Uniswap.
 ///         Run: forge test --match-contract NectarVaultTest -vv
 contract NectarVaultTest is Test {
-
     // ─── Contracts ───────────────────────────────────────────────────────────
-    MockERC20              usdc;
-    MockERC20              gdollar;
-    MockAavePool           aave;
-    MockSwapRouter         router;
+    MockERC20 usdc;
+    MockERC20 gdollar;
+    MockAavePool aave;
+    MockSwapRouter router;
     MockGoodDollarIdentity identity;
-    NectarPool             blueprint;
-    NectarFactory          factory;
-    NectarVault            vault;
+    NectarPool blueprint;
+    NectarFactory factory;
+    NectarVault vault;
 
     // ─── Actors ──────────────────────────────────────────────────────────────
-    address creator  = makeAddr("creator");
-    address alice    = makeAddr("alice");
-    address bob      = makeAddr("bob");
-    address carol    = makeAddr("carol");
+    address creator = makeAddr("creator");
+    address alice = makeAddr("alice");
+    address bob = makeAddr("bob");
+    address carol = makeAddr("carol");
     address treasury = makeAddr("treasury");
-    address vrfAddr  = makeAddr("vrfModule");
+    address vrfAddr = makeAddr("vrfModule");
     address stranger = makeAddr("stranger");
 
     // ─── Pool Config ─────────────────────────────────────────────────────────
-    uint256 constant TARGET  = 6_000e18;
-    uint16  constant MEMBERS = 6;
-    uint16  constant CYCLES  = 10;
-    uint16  constant WINNERS = 2;
-    uint32  constant WEEKLY  = 7 days;
+    uint256 constant TARGET = 6_000e18;
+    uint16 constant MEMBERS = 6;
+    uint16 constant CYCLES = 10;
+    uint16 constant WINNERS = 2;
+    uint32 constant WEEKLY = 7 days;
 
     // ─── Setup ───────────────────────────────────────────────────────────────
 
     function setUp() public {
         // Deploy mock tokens
-        usdc    = new MockERC20("Mock USDC", "mUSDC");
+        usdc = new MockERC20("Mock USDC", "mUSDC");
         gdollar = new MockERC20("Mock GoodDollar", "mG$");
         identity = new MockGoodDollarIdentity();
 
         // Deploy mock DeFi protocols
-        aave   = new MockAavePool();
+        aave = new MockAavePool();
         router = new MockSwapRouter();
 
         // Deploy protocol contracts
@@ -66,12 +65,7 @@ contract NectarVaultTest is Test {
         );
 
         // Deploy vault with factory reference
-        vault = new NectarVault(
-            address(factory),
-            address(aave),
-            address(router),
-            address(usdc)
-        );
+        vault = new NectarVault(address(factory), address(aave), address(router), address(usdc));
 
         // Update factory to point to the real vault
         factory.setVault(address(vault));
@@ -84,7 +78,7 @@ contract NectarVaultTest is Test {
 
         // Fund actors and verify identity
         address[3] memory actors = [creator, alice, bob];
-        for (uint i = 0; i < actors.length; i++) {
+        for (uint256 i = 0; i < actors.length; i++) {
             usdc.mint(actors[i], 100_000e18);
             gdollar.mint(actors[i], 100_000e18);
             identity.testnetSimulateFaceScan(actors[i]);
@@ -96,12 +90,12 @@ contract NectarVaultTest is Test {
     /// @dev Create a pool using USDC as the deposit token
     function _createUSDCPool() internal returns (NectarPool pool) {
         INectarPool.PoolConfig memory cfg = INectarPool.PoolConfig({
-            token:            address(usdc),
-            targetAmount:     TARGET,
-            maxMembers:       MEMBERS,
-            totalCycles:      CYCLES,
-            winnersCount:     WINNERS,
-            cycleDuration:    WEEKLY,
+            token: address(usdc),
+            targetAmount: TARGET,
+            maxMembers: MEMBERS,
+            totalCycles: CYCLES,
+            winnersCount: WINNERS,
+            cycleDuration: WEEKLY,
             requiresIdentity: true,
             enrollmentWindow: INectarPool.EnrollmentWindow.STANDARD,
             distributionMode: INectarPool.DistributionMode.EQUAL
@@ -112,7 +106,7 @@ contract NectarVaultTest is Test {
 
         // Approve everyone to the pool
         address[3] memory members = [creator, alice, bob];
-        for (uint i = 0; i < members.length; i++) {
+        for (uint256 i = 0; i < members.length; i++) {
             vm.prank(members[i]);
             usdc.approve(address(pool), type(uint256).max);
         }
@@ -121,12 +115,12 @@ contract NectarVaultTest is Test {
     /// @dev Create a pool using G$ as the deposit token
     function _createGDollarPool() internal returns (NectarPool pool) {
         INectarPool.PoolConfig memory cfg = INectarPool.PoolConfig({
-            token:            address(gdollar),
-            targetAmount:     TARGET,
-            maxMembers:       MEMBERS,
-            totalCycles:      CYCLES,
-            winnersCount:     WINNERS,
-            cycleDuration:    WEEKLY,
+            token: address(gdollar),
+            targetAmount: TARGET,
+            maxMembers: MEMBERS,
+            totalCycles: CYCLES,
+            winnersCount: WINNERS,
+            cycleDuration: WEEKLY,
             requiresIdentity: true,
             enrollmentWindow: INectarPool.EnrollmentWindow.STANDARD,
             distributionMode: INectarPool.DistributionMode.EQUAL
@@ -137,7 +131,7 @@ contract NectarVaultTest is Test {
 
         // Approve everyone to the pool
         address[3] memory members = [creator, alice, bob];
-        for (uint i = 0; i < members.length; i++) {
+        for (uint256 i = 0; i < members.length; i++) {
             vm.prank(members[i]);
             gdollar.approve(address(pool), type(uint256).max);
         }
@@ -155,10 +149,10 @@ contract NectarVaultTest is Test {
     // ─── 1. Constructor Tests ────────────────────────────────────────────────
 
     function test_Constructor_StoresAddresses() public view {
-        assertEq(vault.factory(),    address(factory));
-        assertEq(vault.aavePool(),   address(aave));
+        assertEq(vault.factory(), address(factory));
+        assertEq(vault.aavePool(), address(aave));
         assertEq(vault.swapRouter(), address(router));
-        assertEq(vault.usdc(),       address(usdc));
+        assertEq(vault.usdc(), address(usdc));
     }
 
     function test_Constructor_RejectsZeroAddress() public {

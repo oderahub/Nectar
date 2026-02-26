@@ -19,7 +19,7 @@ contract NectarPool is INectarPool, ReentrancyGuard {
     // ─── State ────────────────────────────────────────────────────────────────
 
     PoolConfig public config;
-    PoolState  public override state;
+    PoolState public override state;
 
     address public factory;
     address public vault;
@@ -27,16 +27,16 @@ contract NectarPool is INectarPool, ReentrancyGuard {
     address public identityContract;
     address public creator;
 
-    uint256 public poolStartTime;    // Timestamp of pool creation / cycle 1 start
-    uint256 public savingEndTime;    // Timestamp when SAVING phase ends
-    uint256 public yieldEndTime;     // Timestamp when YIELDING phase ends
+    uint256 public poolStartTime; // Timestamp of pool creation / cycle 1 start
+    uint256 public savingEndTime; // Timestamp when SAVING phase ends
+    uint256 public yieldEndTime; // Timestamp when YIELDING phase ends
 
-    uint16  public activeMembers;
-    uint16  public currentWinnersCount;
+    uint16 public activeMembers;
+    uint16 public currentWinnersCount;
 
     address[] public memberList;
     mapping(address => MemberState) public members;
-    mapping(address => bool)        private isMember;
+    mapping(address => bool) private isMember;
 
     // Tracks claim amounts set during DRAWING phase
     mapping(address => uint256) public claimable;
@@ -72,16 +72,16 @@ contract NectarPool is INectarPool, ReentrancyGuard {
         require(!initialized, "NectarPool: already initialized");
         initialized = true;
 
-        factory         = msg.sender;
-        config          = _config;
-        creator         = _creator;
-        vault           = _vault;
-        vrfModule       = _vrfModule;
+        factory = msg.sender;
+        config = _config;
+        creator = _creator;
+        vault = _vault;
+        vrfModule = _vrfModule;
         identityContract = _identityContract;
 
         currentWinnersCount = _config.winnersCount;
-        poolStartTime       = block.timestamp;
-        state               = PoolState.ENROLLMENT;
+        poolStartTime = block.timestamp;
+        state = PoolState.ENROLLMENT;
 
         // Saving phase length = totalCycles × cycleDuration
         savingEndTime = block.timestamp + (uint256(_config.totalCycles) * _config.cycleDuration);
@@ -89,9 +89,9 @@ contract NectarPool is INectarPool, ReentrancyGuard {
         // Yield period: 1 wk (daily), 2 wk (weekly), 4 wk (monthly)
         // Daily cycleDuration = 86400, Weekly = 604800, Monthly ≈ 2592000
         uint256 yieldDuration;
-        if (_config.cycleDuration == 86400)   yieldDuration = 7 days;
+        if (_config.cycleDuration == 86400) yieldDuration = 7 days;
         else if (_config.cycleDuration == 604800) yieldDuration = 14 days;
-        else                                   yieldDuration = 28 days;
+        else yieldDuration = 28 days;
 
         yieldEndTime = savingEndTime + yieldDuration;
 
@@ -116,27 +116,19 @@ contract NectarPool is INectarPool, ReentrancyGuard {
 
         // ── Enrollment window guards ────────────────────────────────────────
         require(
-            NectarMath.isWithinEnrollmentWindow(
-                cycle, config.totalCycles, uint8(config.enrollmentWindow)
-            ),
+            NectarMath.isWithinEnrollmentWindow(cycle, config.totalCycles, uint8(config.enrollmentWindow)),
             "NectarPool: enrollment window closed"
         );
 
         uint16 remaining = NectarMath.remainingCycles(cycle, config.totalCycles);
 
-        require(
-            NectarMath.isAboveThreeCycleFloor(remaining),
-            "NectarPool: fewer than 3 cycles remain"
-        );
+        require(NectarMath.isAboveThreeCycleFloor(remaining), "NectarPool: fewer than 3 cycles remain");
 
-        uint256 perMember  = NectarMath.perMemberTotal(config.targetAmount, config.maxMembers);
-        uint256 baseRate   = NectarMath.baseContribution(perMember, config.totalCycles);
-        uint256 joinRate   = NectarMath.lateJoinerRate(perMember, remaining);
+        uint256 perMember = NectarMath.perMemberTotal(config.targetAmount, config.maxMembers);
+        uint256 baseRate = NectarMath.baseContribution(perMember, config.totalCycles);
+        uint256 joinRate = NectarMath.lateJoinerRate(perMember, remaining);
 
-        require(
-            NectarMath.isWithinTwoXCap(joinRate, baseRate),
-            "NectarPool: rate exceeds 2x cap"
-        );
+        require(NectarMath.isWithinTwoXCap(joinRate, baseRate), "NectarPool: rate exceeds 2x cap");
 
         // ── Register member ─────────────────────────────────────────────────
         isMember[msg.sender] = true;
@@ -144,12 +136,12 @@ contract NectarPool is INectarPool, ReentrancyGuard {
         activeMembers++;
 
         members[msg.sender] = MemberState({
-            joinCycle:    cycle,
-            cyclesPaid:   0,
+            joinCycle: cycle,
+            cyclesPaid: 0,
             assignedRate: joinRate,
-            totalPaid:    0,
-            isRemoved:    false,
-            hasClaimed:   false,
+            totalPaid: 0,
+            isRemoved: false,
+            hasClaimed: false,
             lastPaidCycle: 0
         });
 
@@ -163,8 +155,7 @@ contract NectarPool is INectarPool, ReentrancyGuard {
 
     /// @notice Deposit exactly the assigned amount for the current cycle.
     function deposit(uint256 amount) external override nonReentrant {
-        require(state == PoolState.ENROLLMENT || state == PoolState.SAVING,
-            "NectarPool: deposits not accepted");
+        require(state == PoolState.ENROLLMENT || state == PoolState.SAVING, "NectarPool: deposits not accepted");
         require(isMember[msg.sender], "NectarPool: not a member");
 
         _lazyEvict(msg.sender);
@@ -188,8 +179,7 @@ contract NectarPool is INectarPool, ReentrancyGuard {
     /// @notice Batch deposit to catch up a missed cycle + current cycle in ONE tx.
     ///         Accepts exactly assignedRate × 2. The contract internally splits them.
     function batchDeposit(uint256 totalAmount) external override nonReentrant {
-        require(state == PoolState.ENROLLMENT || state == PoolState.SAVING,
-            "NectarPool: deposits not accepted");
+        require(state == PoolState.ENROLLMENT || state == PoolState.SAVING, "NectarPool: deposits not accepted");
         require(isMember[msg.sender], "NectarPool: not a member");
 
         _lazyEvict(msg.sender);
@@ -218,8 +208,7 @@ contract NectarPool is INectarPool, ReentrancyGuard {
         require(isMember[msg.sender], "NectarPool: not a member");
         MemberState storage m = members[msg.sender];
         require(!m.isRemoved, "NectarPool: already removed");
-        require(state == PoolState.ENROLLMENT || state == PoolState.SAVING,
-            "NectarPool: not available in this phase");
+        require(state == PoolState.ENROLLMENT || state == PoolState.SAVING, "NectarPool: not available in this phase");
 
         uint256 refund = m.totalPaid;
         m.isRemoved = true;
@@ -237,9 +226,7 @@ contract NectarPool is INectarPool, ReentrancyGuard {
 
     /// @notice End SAVING phase and send funds to NectarVault.
     ///         Checks 50% minimum fill threshold before proceeding.
-    function endSavingsPhase()
-        external override nonReentrant
-    {
+    function endSavingsPhase() external override nonReentrant {
         // Lazy transition: pool may still be in ENROLLMENT if no one triggered deposit after window
         _transitionToSavingIfNeeded();
         require(state == PoolState.SAVING, "NectarPool: wrong phase");
@@ -272,15 +259,11 @@ contract NectarPool is INectarPool, ReentrancyGuard {
         // Request draw from VRF module (which pulls funds back from Vault)
         // VRFModule.requestDraw() → Chainlink callback → fulfillDraw()
         // Non-critical: if VRF call fails in testing, state is still DRAWING so fulfillDraw can be called directly
-        vrfModule.call(
-            abi.encodeWithSignature("requestDraw(address)", address(this))
-        );
+        vrfModule.call(abi.encodeWithSignature("requestDraw(address)", address(this)));
     }
 
     /// @notice Called back by NectarVRF with the verified random number.
-    function fulfillDraw(uint256 randomWord, uint256 totalPrincipal, uint256 totalYield)
-        external
-    {
+    function fulfillDraw(uint256 randomWord, uint256 totalPrincipal, uint256 totalYield) external {
         require(msg.sender == vrfModule, "NectarPool: caller not VRF module");
         require(state == PoolState.DRAWING, "NectarPool: wrong phase");
 
@@ -290,7 +273,7 @@ contract NectarPool is INectarPool, ReentrancyGuard {
             return;
         }
 
-        uint256 fee       = NectarMath.protocolFee(totalYield);
+        uint256 fee = NectarMath.protocolFee(totalYield);
         uint256 prizePool = NectarMath.winnersShare(totalYield);
 
         // Build eligible member list (not removed, completed savings)
@@ -298,7 +281,7 @@ contract NectarPool is INectarPool, ReentrancyGuard {
         uint16 winnerCount = NectarMath.adjustedWinnerCount(currentWinnersCount, uint16(eligible.length));
 
         address[] memory winners = new address[](winnerCount);
-        uint256 prizePerWinner   = (winnerCount > 0) ? prizePool / winnerCount : 0;
+        uint256 prizePerWinner = (winnerCount > 0) ? prizePool / winnerCount : 0;
 
         // Deterministic winner selection via modulo on random word
         bool[] memory picked = new bool[](eligible.length);
@@ -342,26 +325,19 @@ contract NectarPool is INectarPool, ReentrancyGuard {
 
     /// @notice Returns current cycle computed lazily from timestamp.
     function currentCycle() public view override returns (uint16) {
-        return NectarMath.computeCurrentCycle(
-            poolStartTime, block.timestamp, config.cycleDuration
-        );
+        return NectarMath.computeCurrentCycle(poolStartTime, block.timestamp, config.cycleDuration);
     }
 
     /// @notice Returns (rate, canJoin) for a late joiner at current cycle.
-    function calculateJoinRate(uint16 atCycle)
-        external view override returns (uint256 rate, bool canJoin)
-    {
+    function calculateJoinRate(uint16 atCycle) external view override returns (uint256 rate, bool canJoin) {
         uint16 remaining = NectarMath.remainingCycles(atCycle, config.totalCycles);
         uint256 perMember = NectarMath.perMemberTotal(config.targetAmount, config.maxMembers);
-        uint256 baseRate  = NectarMath.baseContribution(perMember, config.totalCycles);
+        uint256 baseRate = NectarMath.baseContribution(perMember, config.totalCycles);
         rate = NectarMath.lateJoinerRate(perMember, remaining);
 
-        canJoin =
-            NectarMath.isAboveThreeCycleFloor(remaining) &&
-            NectarMath.isWithinTwoXCap(rate, baseRate) &&
-            NectarMath.isWithinEnrollmentWindow(atCycle, config.totalCycles, uint8(config.enrollmentWindow)) &&
-            activeMembers < config.maxMembers &&
-            state == PoolState.ENROLLMENT;
+        canJoin = NectarMath.isAboveThreeCycleFloor(remaining) && NectarMath.isWithinTwoXCap(rate, baseRate)
+            && NectarMath.isWithinEnrollmentWindow(atCycle, config.totalCycles, uint8(config.enrollmentWindow))
+            && activeMembers < config.maxMembers && state == PoolState.ENROLLMENT;
     }
 
     // ─── Internal Helpers ─────────────────────────────────────────────────────
@@ -380,7 +356,7 @@ contract NectarPool is INectarPool, ReentrancyGuard {
         }
 
         IERC20(config.token).safeTransferFrom(member, address(this), amount);
-        m.totalPaid    += amount;
+        m.totalPaid += amount;
         m.cyclesPaid++;
         m.lastPaidCycle = cycle;
 
@@ -395,9 +371,7 @@ contract NectarPool is INectarPool, ReentrancyGuard {
         return block.timestamp <= windowClose;
     }
 
-    function _expectedDepositAmount(MemberState storage m, uint16 cycle)
-        internal view returns (uint256)
-    {
+    function _expectedDepositAmount(MemberState storage m, uint16 cycle) internal view returns (uint256) {
         // Grace period: if last paid was (cycle - 2), they owe (cycle - 1) now — handled by batchDeposit.
         // For normal single deposits, just the assigned rate is expected.
         return m.assignedRate;
@@ -442,9 +416,7 @@ contract NectarPool is INectarPool, ReentrancyGuard {
     function _transitionToSavingIfNeeded() internal {
         if (state == PoolState.ENROLLMENT) {
             // Enrollment window = first half of cycles (STANDARD = 50%)
-            uint256 windowEnd = poolStartTime + (
-                (uint256(config.totalCycles) / 2) * config.cycleDuration
-            );
+            uint256 windowEnd = poolStartTime + ((uint256(config.totalCycles) / 2) * config.cycleDuration);
             if (block.timestamp > windowEnd) {
                 state = PoolState.SAVING;
                 emit PhaseTransitioned(PoolState.ENROLLMENT, PoolState.SAVING);
@@ -490,9 +462,7 @@ contract NectarPool is INectarPool, ReentrancyGuard {
     }
 
     function _getTreasury() internal view returns (address treasury) {
-        (, bytes memory data) = factory.staticcall(
-            abi.encodeWithSignature("treasury()")
-        );
+        (, bytes memory data) = factory.staticcall(abi.encodeWithSignature("treasury()"));
         if (data.length > 0) treasury = abi.decode(data, (address));
     }
 }

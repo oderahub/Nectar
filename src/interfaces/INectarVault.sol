@@ -7,10 +7,10 @@ interface INectarVault {
     // ─── Structs ─────────────────────────────────────────────────────────────
 
     struct PoolDeposit {
-        address token;       // Original deposit token (G$ or USDC)
-        uint256 principal;   // USDC amount supplied to Aave
-        bool    isActive;    // Whether funds are still in Aave
-        bool    delayed;     // True if Aave withdrawal failed (100% utilization)
+        address token; // Original deposit token (G$ or USDC)
+        uint256 principal; // USDC amount supplied to Aave
+        bool isActive; // Whether funds are still in Aave
+        bool delayed; // True if Aave withdrawal failed (100% utilization)
     }
 
     // ─── Events ──────────────────────────────────────────────────────────────

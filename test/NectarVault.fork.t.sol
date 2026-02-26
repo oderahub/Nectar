@@ -18,35 +18,34 @@ import {MockGoodDollarIdentity} from "../src/MockGoodDollarIdentity.sol";
 /// @dev These tests use `deal()` to fund accounts with real mainnet tokens.
 ///      They do NOT modify mainnet state — the fork is ephemeral.
 contract NectarVaultForkTest is Test {
-
     // ─── Real Celo Mainnet Addresses ─────────────────────────────────────────
 
-    address constant AAVE_POOL    = 0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402;
-    address constant SWAP_ROUTER  = 0x5615CDAb10dc425a742d643d949a7F474C01abc4;
-    address constant USDC         = 0xcebA9300f2b948710d2653dD7B07f33A8B32118C; // USDC on Celo (Circle native)
-    address constant G_DOLLAR     = 0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A;
+    address constant AAVE_POOL = 0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402;
+    address constant SWAP_ROUTER = 0x5615CDAb10dc425a742d643d949a7F474C01abc4;
+    address constant USDC = 0xcebA9300f2b948710d2653dD7B07f33A8B32118C; // USDC on Celo (Circle native)
+    address constant G_DOLLAR = 0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A;
 
     // Aave aToken for USDC on Celo (aUSDC)
     // We'll discover this dynamically via balance checks
 
     // ─── Protocol Contracts ──────────────────────────────────────────────────
 
-    NectarVault            vault;
-    NectarFactory          factory;
-    NectarPool             blueprint;
+    NectarVault vault;
+    NectarFactory factory;
+    NectarPool blueprint;
     MockGoodDollarIdentity identity;
 
     // ─── Actors ──────────────────────────────────────────────────────────────
 
-    address creator  = makeAddr("creator");
+    address creator = makeAddr("creator");
     address treasury = makeAddr("treasury");
-    address vrfAddr  = makeAddr("vrfModule");
+    address vrfAddr = makeAddr("vrfModule");
 
     // ─── Setup ───────────────────────────────────────────────────────────────
 
     function setUp() public {
         // Deploy protocol contracts pointing to real Celo DeFi
-        identity  = new MockGoodDollarIdentity();
+        identity = new MockGoodDollarIdentity();
         blueprint = new NectarPool();
 
         factory = new NectarFactory(
@@ -57,12 +56,7 @@ contract NectarVaultForkTest is Test {
             treasury
         );
 
-        vault = new NectarVault(
-            address(factory),
-            AAVE_POOL,
-            SWAP_ROUTER,
-            USDC
-        );
+        vault = new NectarVault(address(factory), AAVE_POOL, SWAP_ROUTER, USDC);
 
         factory.setVault(address(vault));
 
@@ -79,12 +73,12 @@ contract NectarVaultForkTest is Test {
 
         // We need to create a pool config — use minimal values
         INectarPool.PoolConfig memory cfg = INectarPool.PoolConfig({
-            token:            token,
-            targetAmount:     1000e6, // 1000 USDC (6 decimals)
-            maxMembers:       6,
-            totalCycles:      10,
-            winnersCount:     2,
-            cycleDuration:    7 days,
+            token: token,
+            targetAmount: 1000e6, // 1000 USDC (6 decimals)
+            maxMembers: 6,
+            totalCycles: 10,
+            winnersCount: 2,
+            cycleDuration: 7 days,
             requiresIdentity: true,
             enrollmentWindow: INectarPool.EnrollmentWindow.STANDARD,
             distributionMode: INectarPool.DistributionMode.EQUAL
@@ -185,12 +179,12 @@ contract NectarVaultForkTest is Test {
 
         vm.startPrank(creator2);
         INectarPool.PoolConfig memory cfg2 = INectarPool.PoolConfig({
-            token:            USDC,
-            targetAmount:     2000e6,
-            maxMembers:       6,
-            totalCycles:      10,
-            winnersCount:     2,
-            cycleDuration:    7 days,
+            token: USDC,
+            targetAmount: 2000e6,
+            maxMembers: 6,
+            totalCycles: 10,
+            winnersCount: 2,
+            cycleDuration: 7 days,
             requiresIdentity: true,
             enrollmentWindow: INectarPool.EnrollmentWindow.STANDARD,
             distributionMode: INectarPool.DistributionMode.EQUAL
@@ -250,9 +244,7 @@ contract NectarVaultForkTest is Test {
 
         // Mint G$ by pranking as the Superfluid Host (only host can call selfMint)
         vm.prank(SF_HOST);
-        (bool mintOk,) = G_DOLLAR.call(
-            abi.encodeWithSignature("selfMint(address,uint256,bytes)", pool, amount, "")
-        );
+        (bool mintOk,) = G_DOLLAR.call(abi.encodeWithSignature("selfMint(address,uint256,bytes)", pool, amount, ""));
 
         if (!mintOk) {
             console2.log("=== G$ selfMint FAILED - host may lack minter role ===");

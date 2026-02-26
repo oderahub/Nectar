@@ -8,7 +8,7 @@ interface ISwapRouter {
     struct ExactInputSingleParams {
         address tokenIn;
         address tokenOut;
-        uint24  fee;
+        uint24 fee;
         address recipient;
         uint256 deadline;
         uint256 amountIn;
@@ -19,6 +19,5 @@ interface ISwapRouter {
     /// @notice Swaps `amountIn` of one token for as much as possible of another.
     /// @param params The parameters necessary for the swap.
     /// @return amountOut The amount of the received token.
-    function exactInputSingle(ExactInputSingleParams calldata params)
-        external payable returns (uint256 amountOut);
+    function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
 }
