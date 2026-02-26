@@ -39,5 +39,7 @@ jobs:
 
       - name: Run Forge tests
         run: |
-          forge test -vvv
+          forge test -vvv --no-match-contract NectarVaultForkTest
         id: test
+        # Fork tests are excluded — they require --fork-url https://forno.celo.org
+        # Run locally: forge test --fork-url https://forno.celo.org --match-contract NectarVaultForkTest -vv
