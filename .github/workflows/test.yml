@@ -14,8 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -23,6 +21,11 @@ jobs:
       - name: Show Forge version
         run: |
           forge --version
+
+      - name: Install dependencies
+        run: |
+          forge install foundry-rs/forge-std --no-git --no-commit
+          forge install OpenZeppelin/openzeppelin-contracts --no-git --no-commit
 
       - name: Run Forge fmt
         run: |
