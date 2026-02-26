@@ -38,30 +38,24 @@ contract NectarVault is INectarVault, ReentrancyGuard {
 
     // ─── Constructor ─────────────────────────────────────────────────────────
 
-    constructor(
-        address _factory,
-        address _aavePool,
-        address _swapRouter,
-        address _usdc
-    ) {
-        require(_factory    != address(0), "NectarVault: zero factory");
-        require(_aavePool   != address(0), "NectarVault: zero aave pool");
+    constructor(address _factory, address _aavePool, address _swapRouter, address _usdc) {
+        require(_factory != address(0), "NectarVault: zero factory");
+        require(_aavePool != address(0), "NectarVault: zero aave pool");
         require(_swapRouter != address(0), "NectarVault: zero swap router");
-        require(_usdc       != address(0), "NectarVault: zero usdc");
+        require(_usdc != address(0), "NectarVault: zero usdc");
 
-        factory    = _factory;
-        aavePool   = _aavePool;
+        factory = _factory;
+        aavePool = _aavePool;
         swapRouter = _swapRouter;
-        usdc       = _usdc;
+        usdc = _usdc;
     }
 
     // ─── Modifiers ───────────────────────────────────────────────────────────
 
     modifier onlyRegisteredPool() {
         // Verify caller is a factory-deployed pool via the factory's lookup
-        (bool ok, bytes memory data) = factory.staticcall(
-            abi.encodeWithSignature("isDeployedPool(address)", msg.sender)
-        );
+        (bool ok, bytes memory data) =
+            factory.staticcall(abi.encodeWithSignature("isDeployedPool(address)", msg.sender));
         require(ok && abi.decode(data, (bool)), "NectarVault: caller not a registered pool");
         _;
     }
@@ -70,7 +64,10 @@ contract NectarVault is INectarVault, ReentrancyGuard {
 
     /// @inheritdoc INectarVault
     function depositAndSupply(address pool, address token, uint256 amount)
-        external override nonReentrant onlyRegisteredPool
+        external
+        override
+        nonReentrant
+        onlyRegisteredPool
     {
         require(amount > 0, "NectarVault: zero amount");
         require(!deposits[pool].isActive, "NectarVault: pool already has active deposit");
@@ -93,12 +90,7 @@ contract NectarVault is INectarVault, ReentrancyGuard {
         IAavePool(aavePool).supply(usdc, usdcAmount, address(this), 0);
 
         // Record the deposit
-        deposits[pool] = PoolDeposit({
-            token:     token,
-            principal: usdcAmount,
-            isActive:  true,
-            delayed:   false
-        });
+        deposits[pool] = PoolDeposit({token: token, principal: usdcAmount, isActive: true, delayed: false});
 
         emit FundsDeposited(pool, token, amount, usdcAmount);
     }
@@ -107,7 +99,10 @@ contract NectarVault is INectarVault, ReentrancyGuard {
 
     /// @inheritdoc INectarVault
     function withdrawAndReturn(address pool)
-        external override nonReentrant onlyRegisteredPool
+        external
+        override
+        nonReentrant
+        onlyRegisteredPool
         returns (uint256 principal, uint256 yield, bool success)
     {
         PoolDeposit storage dep = deposits[pool];
@@ -145,7 +140,9 @@ contract NectarVault is INectarVault, ReentrancyGuard {
     /// @notice Retry a previously delayed withdrawal (Aave was at 100% utilization).
     ///         Callable by anyone as an incentivized fallback.
     function retryWithdrawal(address pool)
-        external nonReentrant returns (uint256 principal, uint256 yield, bool success)
+        external
+        nonReentrant
+        returns (uint256 principal, uint256 yield, bool success)
     {
         PoolDeposit storage dep = deposits[pool];
         require(dep.isActive && dep.delayed, "NectarVault: no delayed deposit");
@@ -164,7 +161,7 @@ contract NectarVault is INectarVault, ReentrancyGuard {
         yield = (withdrawn > principal) ? withdrawn - principal : 0;
 
         dep.isActive = false;
-        dep.delayed  = false;
+        dep.delayed = false;
 
         IERC20(usdc).safeTransfer(pool, withdrawn);
 
@@ -184,13 +181,13 @@ contract NectarVault is INectarVault, ReentrancyGuard {
         uint256 minOut = amountIn * SLIPPAGE_NUMERATOR / SLIPPAGE_DENOMINATOR;
 
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
-            tokenIn:           tokenIn,
-            tokenOut:          usdc,
-            fee:               SWAP_FEE,
-            recipient:         address(this),
-            deadline:          block.timestamp,
-            amountIn:          amountIn,
-            amountOutMinimum:  minOut,
+            tokenIn: tokenIn,
+            tokenOut: usdc,
+            fee: SWAP_FEE,
+            recipient: address(this),
+            deadline: block.timestamp,
+            amountIn: amountIn,
+            amountOutMinimum: minOut,
             sqrtPriceLimitX96: 0
         });
 

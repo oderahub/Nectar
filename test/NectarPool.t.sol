@@ -15,52 +15,45 @@ import {MockGoodDollarIdentity} from "../src/MockGoodDollarIdentity.sol";
 ///      All pool clones are deployed via NectarFactory to test the full stack.
 ///      Run: forge test --match-contract NectarPoolTest -vv
 contract NectarPoolTest is Test {
-
     // ─── Test Actors ─────────────────────────────────────────────────────────
     address creator = makeAddr("creator");
-    address alice   = makeAddr("alice");
-    address bob     = makeAddr("bob");
-    address carol   = makeAddr("carol");
-    address dave    = makeAddr("dave");
-    address eve     = makeAddr("eve");
-    address frank   = makeAddr("frank");
+    address alice = makeAddr("alice");
+    address bob = makeAddr("bob");
+    address carol = makeAddr("carol");
+    address dave = makeAddr("dave");
+    address eve = makeAddr("eve");
+    address frank = makeAddr("frank");
     address treasury = makeAddr("treasury");
-    address vaultAddr = makeAddr("vault");     // stubbed for Phase 2
-    address vrfAddr   = makeAddr("vrfModule"); // stubbed for Phase 2
+    address vaultAddr = makeAddr("vault"); // stubbed for Phase 2
+    address vrfAddr = makeAddr("vrfModule"); // stubbed for Phase 2
 
     // ─── Protocol Contracts ───────────────────────────────────────────────────
-    MockERC20               token;
-    MockGoodDollarIdentity  identity;
-    NectarPool              blueprint;
-    NectarFactory           factory;
+    MockERC20 token;
+    MockGoodDollarIdentity identity;
+    NectarPool blueprint;
+    NectarFactory factory;
 
     // ─── Pool Constants ──────────────────────────────────────────────────────
-    uint256 constant TARGET    = 12_000e18;  // 12,000 USDC
-    uint16  constant MEMBERS   = 6;
-    uint16  constant CYCLES    = 10;         // 10 weeks
-    uint16  constant WINNERS   = 2;
-    uint32  constant WEEKLY    = 7 days;
+    uint256 constant TARGET = 12_000e18; // 12,000 USDC
+    uint16 constant MEMBERS = 6;
+    uint16 constant CYCLES = 10; // 10 weeks
+    uint16 constant WINNERS = 2;
+    uint32 constant WEEKLY = 7 days;
 
     // ─── Setup ────────────────────────────────────────────────────────────────
 
     function setUp() public {
         // Deploy mocks
-        token    = new MockERC20("Mock USDC", "mUSDC");
+        token = new MockERC20("Mock USDC", "mUSDC");
         identity = new MockGoodDollarIdentity();
 
         // Deploy the blueprint and factory
         blueprint = new NectarPool();
-        factory   = new NectarFactory(
-            address(blueprint),
-            vaultAddr,
-            vrfAddr,
-            address(identity),
-            treasury
-        );
+        factory = new NectarFactory(address(blueprint), vaultAddr, vrfAddr, address(identity), treasury);
 
         // Fund and verify test actors
         address[6] memory actors = [creator, alice, bob, carol, dave, eve];
-        for (uint i = 0; i < actors.length; i++) {
+        for (uint256 i = 0; i < actors.length; i++) {
             token.mint(actors[i], 10_000e18);
             identity.testnetSimulateFaceScan(actors[i]);
             // Approvals to the pool are done inside _createWeeklyPool() after the address is known
@@ -71,12 +64,12 @@ contract NectarPoolTest is Test {
 
     function _createWeeklyPool() internal returns (NectarPool pool) {
         INectarPool.PoolConfig memory cfg = INectarPool.PoolConfig({
-            token:            address(token),
-            targetAmount:     TARGET,
-            maxMembers:       MEMBERS,
-            totalCycles:      CYCLES,
-            winnersCount:     WINNERS,
-            cycleDuration:    WEEKLY,
+            token: address(token),
+            targetAmount: TARGET,
+            maxMembers: MEMBERS,
+            totalCycles: CYCLES,
+            winnersCount: WINNERS,
+            cycleDuration: WEEKLY,
             requiresIdentity: true,
             enrollmentWindow: INectarPool.EnrollmentWindow.STANDARD,
             distributionMode: INectarPool.DistributionMode.EQUAL
@@ -87,7 +80,7 @@ contract NectarPoolTest is Test {
 
         // Approve everyone to the pool
         address[5] memory members = [creator, alice, bob, carol, dave];
-        for (uint i = 0; i < members.length; i++) {
+        for (uint256 i = 0; i < members.length; i++) {
             vm.prank(members[i]);
             token.approve(address(pool), type(uint256).max);
         }
@@ -97,18 +90,15 @@ contract NectarPoolTest is Test {
 
     function test_CreatePool_StateIsEnrollment() public {
         NectarPool pool = _createWeeklyPool();
-        assertEq(uint(pool.state()), uint(INectarPool.PoolState.ENROLLMENT));
+        assertEq(uint256(pool.state()), uint256(INectarPool.PoolState.ENROLLMENT));
     }
 
     function test_CreatePool_ConfigStoredCorrectly() public {
         NectarPool pool = _createWeeklyPool();
-        (
-            address tkn,,uint16 max,uint16 cycles,uint16 winners,
-            uint32 duration, bool reqId,,
-        ) = _unpackConfig(pool);
-        assertEq(tkn,     address(token));
-        assertEq(max,     MEMBERS);
-        assertEq(cycles,  CYCLES);
+        (address tkn,, uint16 max, uint16 cycles, uint16 winners, uint32 duration, bool reqId,,) = _unpackConfig(pool);
+        assertEq(tkn, address(token));
+        assertEq(max, MEMBERS);
+        assertEq(cycles, CYCLES);
         assertEq(winners, WINNERS);
         assertEq(duration, WEEKLY);
         assertTrue(reqId);
@@ -146,15 +136,13 @@ contract NectarPoolTest is Test {
 
     function test_JoinPool_AcceptsVerifiedUser() public {
         NectarPool pool = _createWeeklyPool();
-        uint256 expectedRate = NectarMath.baseContribution(
-            NectarMath.perMemberTotal(TARGET, MEMBERS), CYCLES
-        ); // 200 USDC
+        uint256 expectedRate = NectarMath.baseContribution(NectarMath.perMemberTotal(TARGET, MEMBERS), CYCLES); // 200 USDC
 
         vm.prank(alice);
         pool.joinPool();
 
         assertEq(pool.activeMembers(), 1);
-        (,,,uint256 paid,,,) = _unpackMember(pool, alice);
+        (,,, uint256 paid,,,) = _unpackMember(pool, alice);
         assertEq(paid, expectedRate, "First deposit should equal base rate");
     }
 
@@ -200,10 +188,8 @@ contract NectarPoolTest is Test {
         pool.joinPool();
 
         // Expected: 2000e18 / 7 remaining cycles
-        uint256 expectedRate = NectarMath.lateJoinerRate(
-            NectarMath.perMemberTotal(TARGET, MEMBERS), 7
-        );
-        (,,uint256 rate,,,,) = _unpackMember(pool, alice);
+        uint256 expectedRate = NectarMath.lateJoinerRate(NectarMath.perMemberTotal(TARGET, MEMBERS), 7);
+        (,, uint256 rate,,,,) = _unpackMember(pool, alice);
         assertApproxEqAbs(rate, expectedRate, 1e6, "Late joiner rate should be 2000/7");
     }
 
@@ -234,7 +220,7 @@ contract NectarPoolTest is Test {
         uint256 rate = 200e18; // 200 USDC base rate
 
         vm.prank(alice);
-        pool.joinPool();  // Cycle 1 deposit done at join
+        pool.joinPool(); // Cycle 1 deposit done at join
 
         // Warp to cycle 2
         vm.warp(block.timestamp + 1 weeks);
@@ -289,7 +275,7 @@ contract NectarPoolTest is Test {
         vm.prank(alice);
         pool.batchDeposit(rate * 2); // Pay missed cycle 3 + current cycle 4
 
-        (,, , uint256 paid,,,uint16 lastPaid) = _unpackMember(pool, alice);
+        (,,, uint256 paid,,, uint16 lastPaid) = _unpackMember(pool, alice);
         assertEq(lastPaid, 4, "Should be caught up to cycle 4");
         assertEq(paid, rate * 4, "Total paid should be 4 cycles");
     }
@@ -353,27 +339,28 @@ contract NectarPoolTest is Test {
         vm.warp(block.timestamp + 10 weeks + 1);
         pool.endSavingsPhase();
 
-        assertEq(uint(pool.state()), uint(INectarPool.PoolState.CANCELLED),
-            "Pool should cancel below threshold");
+        assertEq(uint256(pool.state()), uint256(INectarPool.PoolState.CANCELLED), "Pool should cancel below threshold");
     }
 
     function test_EndSavingsPhase_ProceedsIfThresholdMet() public {
         NectarPool pool = _createWeeklyPool();
         // Join 3 members (50% of 6 = minimum fill)
-        vm.prank(alice);  pool.joinPool();
-        vm.prank(bob);    pool.joinPool();
-        vm.prank(carol);  pool.joinPool();
+        vm.prank(alice);
+        pool.joinPool();
+        vm.prank(bob);
+        pool.joinPool();
+        vm.prank(carol);
+        pool.joinPool();
 
         // Pay all 10 cycles for all members
-        _payAllCycles(pool, alice,  200e18, 10);
-        _payAllCycles(pool, bob,    200e18, 10);
-        _payAllCycles(pool, carol,  200e18, 10);
+        _payAllCycles(pool, alice, 200e18, 10);
+        _payAllCycles(pool, bob, 200e18, 10);
+        _payAllCycles(pool, carol, 200e18, 10);
 
         vm.warp(block.timestamp + 10 weeks + 1);
         pool.endSavingsPhase();
 
-        assertEq(uint(pool.state()), uint(INectarPool.PoolState.YIELDING),
-            "Pool should move to YIELDING");
+        assertEq(uint256(pool.state()), uint256(INectarPool.PoolState.YIELDING), "Pool should move to YIELDING");
     }
 
     // ─── 7. calculateJoinRate View Tests ─────────────────────────────────────
@@ -396,12 +383,12 @@ contract NectarPoolTest is Test {
 
     function _baseConfig() internal view returns (INectarPool.PoolConfig memory) {
         return INectarPool.PoolConfig({
-            token:            address(token),
-            targetAmount:     TARGET,
-            maxMembers:       MEMBERS,
-            totalCycles:      CYCLES,
-            winnersCount:     WINNERS,
-            cycleDuration:    WEEKLY,
+            token: address(token),
+            targetAmount: TARGET,
+            maxMembers: MEMBERS,
+            totalCycles: CYCLES,
+            winnersCount: WINNERS,
+            cycleDuration: WEEKLY,
             requiresIdentity: true,
             enrollmentWindow: INectarPool.EnrollmentWindow.STANDARD,
             distributionMode: INectarPool.DistributionMode.EQUAL
@@ -409,7 +396,8 @@ contract NectarPoolTest is Test {
     }
 
     function _unpackMember(NectarPool pool, address member)
-        internal view
+        internal
+        view
         returns (
             uint16 joinCycle,
             uint16 cyclesPaid,
@@ -420,31 +408,35 @@ contract NectarPoolTest is Test {
             uint16 lastPaidCycle
         )
     {
-        (
-            uint16 jc, uint16 cp, uint256 ar,
-            uint256 tp, bool rem, bool hc, uint16 lpc
-        ) = pool.members(member);
+        (uint16 jc, uint16 cp, uint256 ar, uint256 tp, bool rem, bool hc, uint16 lpc) = pool.members(member);
         return (jc, cp, ar, tp, rem, hc, lpc);
     }
 
     function _unpackConfig(NectarPool pool)
-        internal view
+        internal
+        view
         returns (
             address tkn,
             uint256 target,
-            uint16  maxMembers,
-            uint16  totalCycles,
-            uint16  winnersCount,
-            uint32  cycleDuration,
-            bool    requiresIdentity,
-            uint8   enrollmentWindowType,
-            uint8   distributionMode
+            uint16 maxMembers,
+            uint16 totalCycles,
+            uint16 winnersCount,
+            uint32 cycleDuration,
+            bool requiresIdentity,
+            uint8 enrollmentWindowType,
+            uint8 distributionMode
         )
     {
         (
-            address t, uint256 ta, uint16 mm,
-            uint16 tc, uint16 wc, uint32 cd,
-            bool ri, INectarPool.EnrollmentWindow ew, INectarPool.DistributionMode dm
+            address t,
+            uint256 ta,
+            uint16 mm,
+            uint16 tc,
+            uint16 wc,
+            uint32 cd,
+            bool ri,
+            INectarPool.EnrollmentWindow ew,
+            INectarPool.DistributionMode dm
         ) = pool.config();
         return (t, ta, mm, tc, wc, cd, ri, uint8(ew), uint8(dm));
     }
@@ -480,9 +472,12 @@ contract NectarPoolTest is Test {
 
     function test_EndSavingsPhase_RevertsBeforeTime() public {
         NectarPool pool = _createWeeklyPool();
-        vm.prank(alice); pool.joinPool();
-        vm.prank(bob);   pool.joinPool();
-        vm.prank(carol); pool.joinPool();
+        vm.prank(alice);
+        pool.joinPool();
+        vm.prank(bob);
+        pool.joinPool();
+        vm.prank(carol);
+        pool.joinPool();
 
         // Warp to just past the enrollment window (saving period is 10 weeks),
         // but NOT past savingEndTime — expect "saving period not over"
@@ -494,16 +489,19 @@ contract NectarPoolTest is Test {
     function test_EndYieldPhase_RevertsBeforeTime() public {
         NectarPool pool = _createWeeklyPool();
         // Fill the pool and advance to YIELDING
-        vm.prank(alice); pool.joinPool();
-        vm.prank(bob);   pool.joinPool();
-        vm.prank(carol); pool.joinPool();
+        vm.prank(alice);
+        pool.joinPool();
+        vm.prank(bob);
+        pool.joinPool();
+        vm.prank(carol);
+        pool.joinPool();
         _payAllCycles(pool, alice, 200e18, 10);
-        _payAllCycles(pool, bob,   200e18, 10);
+        _payAllCycles(pool, bob, 200e18, 10);
         _payAllCycles(pool, carol, 200e18, 10);
         // Use absolute poolStartTime to avoid accumulating warp from _payAllCycles
         vm.warp(pool.poolStartTime() + 10 * WEEKLY + 1);
         pool.endSavingsPhase();
-        assertEq(uint(pool.state()), uint(INectarPool.PoolState.YIELDING));
+        assertEq(uint256(pool.state()), uint256(INectarPool.PoolState.YIELDING));
 
         // Try to end yield phase immediately (yieldEndTime is savingEndTime + 14 days away)
         vm.expectRevert("NectarPool: yield period not over");
@@ -521,7 +519,7 @@ contract NectarPoolTest is Test {
         token.approve(address(pool), type(uint256).max);
 
         // Fill all 6 slots
-        for (uint i = 0; i < members2.length; i++) {
+        for (uint256 i = 0; i < members2.length; i++) {
             vm.prank(members2[i]);
             pool.joinPool();
         }
@@ -543,7 +541,8 @@ contract NectarPoolTest is Test {
     function test_LazyEvict_MemberRemovedAfterTwoMissedCycles() public {
         NectarPool pool = _createWeeklyPool();
 
-        vm.prank(alice); pool.joinPool();  // pays cycle 1, lastPaidCycle=1
+        vm.prank(alice);
+        pool.joinPool(); // pays cycle 1, lastPaidCycle=1
 
         // Warp past cycle 4 (missed cycles 2 and 3 consecutively — gap=3)
         // gap = 4 - 1 = 3 > 2 → eviction threshold met
@@ -553,7 +552,7 @@ contract NectarPoolTest is Test {
         pool.checkAndEvict(alice);
 
         // Verify member state
-        (,,,,bool isRemoved,,) = _unpackMember(pool, alice);
+        (,,,, bool isRemoved,,) = _unpackMember(pool, alice);
         assertTrue(isRemoved, "Alice should be evicted");
         assertEq(pool.activeMembers(), 0, "Active count should drop to 0");
     }
@@ -562,7 +561,8 @@ contract NectarPoolTest is Test {
         NectarPool pool = _createWeeklyPool();
         uint256 rate = 200e18;
 
-        vm.prank(alice); pool.joinPool(); // totalPaid = 200e18
+        vm.prank(alice);
+        pool.joinPool(); // totalPaid = 200e18
 
         // Miss cycles 2 and 3 (gap = 3 cycles → eviction)
         vm.warp(pool.poolStartTime() + 3 * WEEKLY + 1);
@@ -583,25 +583,28 @@ contract NectarPoolTest is Test {
         uint256 rate = 200e18;
 
         // 3 members join and pay all cycles
-        vm.prank(alice); pool.joinPool();
-        vm.prank(bob);   pool.joinPool();
-        vm.prank(carol); pool.joinPool();
+        vm.prank(alice);
+        pool.joinPool();
+        vm.prank(bob);
+        pool.joinPool();
+        vm.prank(carol);
+        pool.joinPool();
         _payAllCycles(pool, alice, rate, 10);
-        _payAllCycles(pool, bob,   rate, 10);
+        _payAllCycles(pool, bob, rate, 10);
         _payAllCycles(pool, carol, rate, 10);
 
         // End SAVING phase → YIELDING
         vm.warp(pool.poolStartTime() + 10 * WEEKLY + 1);
         pool.endSavingsPhase();
-        assertEq(uint(pool.state()), uint(INectarPool.PoolState.YIELDING));
+        assertEq(uint256(pool.state()), uint256(INectarPool.PoolState.YIELDING));
 
         // Advance YIELDING → DRAWING
         _advanceToDrawing(pool);
-        assertEq(uint(pool.state()), uint(INectarPool.PoolState.DRAWING));
+        assertEq(uint256(pool.state()), uint256(INectarPool.PoolState.DRAWING));
 
         // Simulate vault sending back funds + yield to pool
         uint256 principal = rate * 10 * 3; // 6000e18 total from 3 members
-        uint256 yield     = 300e18;        // Simulated Aave yield
+        uint256 yield = 300e18; // Simulated Aave yield
         uint256 totalBack = principal + yield;
         token.mint(address(pool), totalBack);
 
@@ -609,20 +612,19 @@ contract NectarPoolTest is Test {
         vm.prank(vrfAddr);
         pool.fulfillDraw(uint256(keccak256("seed")), principal, yield);
 
-        assertEq(uint(pool.state()), uint(INectarPool.PoolState.SETTLED));
+        assertEq(uint256(pool.state()), uint256(INectarPool.PoolState.SETTLED));
 
         // Treasury received 5% fee
-        uint256 expectedFee  = yield * 5 / 100; // 15e18
+        uint256 expectedFee = yield * 5 / 100; // 15e18
         assertEq(token.balanceOf(treasury), expectedFee, "Treasury fee incorrect");
 
         // Each member should have their principal claimable (non-winner portion)
         // Winners additionally get yield share — irrespective of which members won,
         // total claimable must >= principal for everyone
         address[3] memory members3 = [alice, bob, carol];
-        for (uint i = 0; i < members3.length; i++) {
+        for (uint256 i = 0; i < members3.length; i++) {
             assertTrue(
-                pool.claimable(members3[i]) >= rate * 10,
-                "Each member should have at least their principal claimable"
+                pool.claimable(members3[i]) >= rate * 10, "Each member should have at least their principal claimable"
             );
         }
     }
@@ -631,11 +633,14 @@ contract NectarPoolTest is Test {
         NectarPool pool = _createWeeklyPool();
         uint256 rate = 200e18;
 
-        vm.prank(alice); pool.joinPool();
-        vm.prank(bob);   pool.joinPool();
-        vm.prank(carol); pool.joinPool();
+        vm.prank(alice);
+        pool.joinPool();
+        vm.prank(bob);
+        pool.joinPool();
+        vm.prank(carol);
+        pool.joinPool();
         _payAllCycles(pool, alice, rate, 10);
-        _payAllCycles(pool, bob,   rate, 10);
+        _payAllCycles(pool, bob, rate, 10);
         _payAllCycles(pool, carol, rate, 10);
 
         vm.warp(pool.poolStartTime() + 10 * WEEKLY + 1);
@@ -643,7 +648,7 @@ contract NectarPoolTest is Test {
         _advanceToDrawing(pool);
 
         uint256 principal = rate * 10 * 3;
-        uint256 yield     = 300e18;
+        uint256 yield = 300e18;
         token.mint(address(pool), principal + yield);
 
         vm.prank(vrfAddr);
@@ -651,7 +656,7 @@ contract NectarPoolTest is Test {
 
         // Alice claims
         uint256 aliceClaimable = pool.claimable(alice);
-        uint256 aliceBefore    = token.balanceOf(alice);
+        uint256 aliceBefore = token.balanceOf(alice);
 
         vm.prank(alice);
         pool.claim();
@@ -666,11 +671,14 @@ contract NectarPoolTest is Test {
         NectarPool pool = _createWeeklyPool();
         uint256 rate = 200e18;
 
-        vm.prank(alice); pool.joinPool();
-        vm.prank(bob);   pool.joinPool();
-        vm.prank(carol); pool.joinPool();
+        vm.prank(alice);
+        pool.joinPool();
+        vm.prank(bob);
+        pool.joinPool();
+        vm.prank(carol);
+        pool.joinPool();
         _payAllCycles(pool, alice, rate, 10);
-        _payAllCycles(pool, bob,   rate, 10);
+        _payAllCycles(pool, bob, rate, 10);
         _payAllCycles(pool, carol, rate, 10);
 
         vm.warp(pool.poolStartTime() + 10 * WEEKLY + 1);
@@ -685,11 +693,11 @@ contract NectarPoolTest is Test {
         vm.prank(vrfAddr);
         pool.fulfillDraw(uint256(keccak256("seed")), principal, tinyYield);
 
-        assertEq(uint(pool.state()), uint(INectarPool.PoolState.SETTLED));
+        assertEq(uint256(pool.state()), uint256(INectarPool.PoolState.SETTLED));
 
         // Everyone should get exactly their principal back (no prize split)
         assertEq(pool.claimable(alice), rate * 10, "Alice should get full principal");
-        assertEq(pool.claimable(bob),   rate * 10, "Bob should get full principal");
+        assertEq(pool.claimable(bob), rate * 10, "Bob should get full principal");
         assertEq(pool.claimable(carol), rate * 10, "Carol should get full principal");
     }
 
@@ -697,11 +705,14 @@ contract NectarPoolTest is Test {
         NectarPool pool = _createWeeklyPool();
         uint256 rate = 200e18;
 
-        vm.prank(alice); pool.joinPool();
-        vm.prank(bob);   pool.joinPool();
-        vm.prank(carol); pool.joinPool();
+        vm.prank(alice);
+        pool.joinPool();
+        vm.prank(bob);
+        pool.joinPool();
+        vm.prank(carol);
+        pool.joinPool();
         _payAllCycles(pool, alice, rate, 10);
-        _payAllCycles(pool, bob,   rate, 10);
+        _payAllCycles(pool, bob, rate, 10);
         _payAllCycles(pool, carol, rate, 10);
 
         vm.warp(pool.poolStartTime() + 10 * WEEKLY + 1);
@@ -724,7 +735,8 @@ contract NectarPoolTest is Test {
 
     function test_Claim_RevertsIfNotSettled() public {
         NectarPool pool = _createWeeklyPool();
-        vm.prank(alice); pool.joinPool();
+        vm.prank(alice);
+        pool.joinPool();
 
         vm.prank(alice);
         vm.expectRevert("NectarPool: wrong phase");
@@ -735,11 +747,14 @@ contract NectarPoolTest is Test {
         NectarPool pool = _createWeeklyPool();
         uint256 rate = 200e18;
 
-        vm.prank(alice); pool.joinPool();
-        vm.prank(bob);   pool.joinPool();
-        vm.prank(carol); pool.joinPool();
+        vm.prank(alice);
+        pool.joinPool();
+        vm.prank(bob);
+        pool.joinPool();
+        vm.prank(carol);
+        pool.joinPool();
         _payAllCycles(pool, alice, rate, 10);
-        _payAllCycles(pool, bob,   rate, 10);
+        _payAllCycles(pool, bob, rate, 10);
         _payAllCycles(pool, carol, rate, 10);
 
         vm.warp(pool.poolStartTime() + 10 * WEEKLY + 1);
@@ -759,11 +774,14 @@ contract NectarPoolTest is Test {
         NectarPool pool = _createWeeklyPool();
         uint256 rate = 200e18;
 
-        vm.prank(alice); pool.joinPool();
-        vm.prank(bob);   pool.joinPool();
-        vm.prank(carol); pool.joinPool();
+        vm.prank(alice);
+        pool.joinPool();
+        vm.prank(bob);
+        pool.joinPool();
+        vm.prank(carol);
+        pool.joinPool();
         _payAllCycles(pool, alice, rate, 10);
-        _payAllCycles(pool, bob,   rate, 10);
+        _payAllCycles(pool, bob, rate, 10);
         _payAllCycles(pool, carol, rate, 10);
 
         vm.warp(pool.poolStartTime() + 10 * WEEKLY + 1);
@@ -788,23 +806,27 @@ contract NectarPoolTest is Test {
         uint256 rate = 200e18;
 
         // Only 2 join (below 50% of 6 = 3 minimum)
-        vm.prank(alice); pool.joinPool();
-        vm.prank(bob);   pool.joinPool();
+        vm.prank(alice);
+        pool.joinPool();
+        vm.prank(bob);
+        pool.joinPool();
 
         vm.warp(pool.poolStartTime() + 10 * WEEKLY + 1);
         pool.endSavingsPhase(); // Should cancel
 
-        assertEq(uint(pool.state()), uint(INectarPool.PoolState.CANCELLED));
+        assertEq(uint256(pool.state()), uint256(INectarPool.PoolState.CANCELLED));
         assertEq(pool.claimable(alice), rate, "Alice should have principal in claimable");
-        assertEq(pool.claimable(bob),   rate, "Bob should have principal in claimable");
+        assertEq(pool.claimable(bob), rate, "Bob should have principal in claimable");
     }
 
     function test_CancelledPool_MemberCanReclaimPrincipal() public {
         NectarPool pool = _createWeeklyPool();
         uint256 rate = 200e18;
 
-        vm.prank(alice); pool.joinPool();
-        vm.prank(bob);   pool.joinPool();
+        vm.prank(alice);
+        pool.joinPool();
+        vm.prank(bob);
+        pool.joinPool();
 
         vm.warp(pool.poolStartTime() + 10 * WEEKLY + 1);
         pool.endSavingsPhase();
@@ -828,7 +850,7 @@ contract NectarPoolTest is Test {
 
         NectarPool pool = _createWeeklyPool();
         uint256 perMember = 12_000e18 / 6; // 2000e18
-        uint256 baseRate  = perMember / 10; // 200e18
+        uint256 baseRate = perMember / 10; // 200e18
 
         (uint256 rate, bool canJoin) = pool.calculateJoinRate(elapsedCycles);
 

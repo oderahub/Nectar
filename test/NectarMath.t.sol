@@ -13,17 +13,17 @@ contract NectarMathTest is Test {
 
     // ─── Pool Setup Fixtures ──────────────────────────────────────────────────
 
-    uint256 constant TARGET_WEEKLY  = 12_000e18; // 12,000 USDC
-    uint16  constant MEMBERS        = 6;
-    uint16  constant CYCLES_WEEKLY  = 10;        // 10 weeks
+    uint256 constant TARGET_WEEKLY = 12_000e18; // 12,000 USDC
+    uint16 constant MEMBERS = 6;
+    uint16 constant CYCLES_WEEKLY = 10; // 10 weeks
 
-    uint256 constant TARGET_DAILY   = 600e18;    // 600 G$
-    uint16  constant MEMBERS_DAILY  = 10;
-    uint16  constant CYCLES_DAILY   = 30;        // 30 days
+    uint256 constant TARGET_DAILY = 600e18; // 600 G$
+    uint16 constant MEMBERS_DAILY = 10;
+    uint16 constant CYCLES_DAILY = 30; // 30 days
 
     uint256 constant TARGET_MONTHLY = 60_000e18; // 60,000 USDC
-    uint16  constant MEMBERS_MONTHLY = 20;
-    uint16  constant CYCLES_MONTHLY = 6;         // 6 months
+    uint16 constant MEMBERS_MONTHLY = 20;
+    uint16 constant CYCLES_MONTHLY = 6; // 6 months
 
     // ─── 1. Base Contribution Tests ──────────────────────────────────────────
 
@@ -32,21 +32,21 @@ contract NectarMathTest is Test {
         uint256 perMember = NectarMath.perMemberTotal(TARGET_WEEKLY, MEMBERS);
         uint256 base = NectarMath.baseContribution(perMember, CYCLES_WEEKLY);
         assertEq(perMember, 2_000e18, "Per-member total wrong");
-        assertEq(base,      200e18,   "Base contribution wrong");
+        assertEq(base, 200e18, "Base contribution wrong");
     }
 
     function test_BaseContribution_DailyPool() public pure {
         uint256 perMember = NectarMath.perMemberTotal(TARGET_DAILY, MEMBERS_DAILY);
         uint256 base = NectarMath.baseContribution(perMember, CYCLES_DAILY);
         assertEq(perMember, 60e18, "Per-member total wrong");
-        assertEq(base,      2e18,  "Base contribution wrong (should be 2 G$/day)");
+        assertEq(base, 2e18, "Base contribution wrong (should be 2 G$/day)");
     }
 
     function test_BaseContribution_MonthlyPool() public pure {
         uint256 perMember = NectarMath.perMemberTotal(TARGET_MONTHLY, MEMBERS_MONTHLY);
         uint256 base = NectarMath.baseContribution(perMember, CYCLES_MONTHLY);
         assertEq(perMember, 3_000e18, "Per-member total wrong");
-        assertEq(base,      500e18,   "Base contribution wrong");
+        assertEq(base, 500e18, "Base contribution wrong");
     }
 
     // ─── 2. Late Joiner Rate Tests ────────────────────────────────────────────
@@ -206,7 +206,7 @@ contract NectarMathTest is Test {
         uint256 totalYield = 300e18;
         uint256 fee = NectarMath.protocolFee(totalYield);
         uint256 winnersShare = NectarMath.winnersShare(totalYield);
-        assertEq(fee, 15e18,  "Protocol fee should be 15 USDC");
+        assertEq(fee, 15e18, "Protocol fee should be 15 USDC");
         assertEq(winnersShare, 285e18, "Winners share should be 285 USDC");
         assertEq(fee + winnersShare, totalYield, "Fee + winners must equal total yield");
     }
@@ -276,10 +276,7 @@ contract NectarMathTest is Test {
     // ─── 10. Fuzz Tests ──────────────────────────────────────────────────────
 
     /// @notice Fuzz: late joiner rate is always ≤ perMemberTotal
-    function testFuzz_LateJoinerRate_NeverExceedsTotal(
-        uint256 perMember,
-        uint16 remainingCycles
-    ) public pure {
+    function testFuzz_LateJoinerRate_NeverExceedsTotal(uint256 perMember, uint16 remainingCycles) public pure {
         vm.assume(perMember > 0 && perMember < 1_000_000_000e18);
         vm.assume(remainingCycles > 0 && remainingCycles <= 30);
         uint256 rate = NectarMath.lateJoinerRate(perMember, remainingCycles);

@@ -15,13 +15,13 @@ contract NectarFactory is Ownable {
 
     // ─── Global Configuration ─────────────────────────────────────────────────
 
-    address public poolBlueprint;      // The master NectarPool implementation
-    address public vault;              // NectarVault (Aave + DEX routing)
-    address public vrfModule;          // NectarVRF (Chainlink VRF wrapper)
-    address public identityContract;   // GoodDollar Identity (0xC361... on mainnet)
-    address public treasury;           // Protocol treasury (receives 5% fee)
+    address public poolBlueprint; // The master NectarPool implementation
+    address public vault; // NectarVault (Aave + DEX routing)
+    address public vrfModule; // NectarVRF (Chainlink VRF wrapper)
+    address public identityContract; // GoodDollar Identity (0xC361... on mainnet)
+    address public treasury; // Protocol treasury (receives 5% fee)
 
-    uint8  public constant MAX_ACTIVE_POOLS = 3;
+    uint8 public constant MAX_ACTIVE_POOLS = 3;
 
     // ─── State ────────────────────────────────────────────────────────────────
 
@@ -38,8 +38,8 @@ contract NectarFactory is Ownable {
         address indexed creator,
         address token,
         uint256 targetAmount,
-        uint16  maxMembers,
-        uint16  totalCycles
+        uint16 maxMembers,
+        uint16 totalCycles
     );
     event GlobalConfigUpdated(string field, address newValue);
 
@@ -52,53 +52,35 @@ contract NectarFactory is Ownable {
         address _identityContract,
         address _treasury
     ) Ownable(msg.sender) {
-        poolBlueprint    = _poolBlueprint;
-        vault            = _vault;
-        vrfModule        = _vrfModule;
+        poolBlueprint = _poolBlueprint;
+        vault = _vault;
+        vrfModule = _vrfModule;
         identityContract = _identityContract;
-        treasury         = _treasury;
+        treasury = _treasury;
     }
 
     // ─── Pool Creation ────────────────────────────────────────────────────────
 
     /// @notice Deploy a new savings pool. Creator must make the first deposit inside NectarPool.joinPool().
-    function createPool(INectarPool.PoolConfig calldata config)
-        external returns (address pool)
-    {
+    function createPool(INectarPool.PoolConfig calldata config) external returns (address pool) {
+        require(activePoolCount[msg.sender] < MAX_ACTIVE_POOLS, "NectarFactory: 3-pool limit reached");
+        require(config.maxMembers >= 3 && config.maxMembers <= 50, "NectarFactory: members must be 3-50");
         require(
-            activePoolCount[msg.sender] < MAX_ACTIVE_POOLS,
-            "NectarFactory: 3-pool limit reached"
+            config.winnersCount >= 1 && config.winnersCount < config.maxMembers, "NectarFactory: invalid winner count"
         );
-        require(config.maxMembers >= 3 && config.maxMembers <= 50,
-            "NectarFactory: members must be 3-50");
-        require(config.winnersCount >= 1 && config.winnersCount < config.maxMembers,
-            "NectarFactory: invalid winner count");
         require(config.totalCycles >= 3, "NectarFactory: minimum 3 cycles");
 
         // Deploy the EIP-1167 minimal proxy clone (gas efficient)
         pool = poolBlueprint.clone();
 
         // Initialize the new pool clone with its specific parameters
-        INectarPool(pool).initialize(
-            config,
-            msg.sender,
-            vault,
-            vrfModule,
-            identityContract
-        );
+        INectarPool(pool).initialize(config, msg.sender, vault, vrfModule, identityContract);
 
         allPools.push(pool);
         isDeployedPool[pool] = true;
         activePoolCount[msg.sender]++;
 
-        emit PoolCreated(
-            pool,
-            msg.sender,
-            config.token,
-            config.targetAmount,
-            config.maxMembers,
-            config.totalCycles
-        );
+        emit PoolCreated(pool, msg.sender, config.token, config.targetAmount, config.maxMembers, config.totalCycles);
     }
 
     // ─── Pool Limit Tracking ──────────────────────────────────────────────────
@@ -106,10 +88,7 @@ contract NectarFactory is Ownable {
     /// @notice Called by NectarPool when a member joins (via delegate trust pattern).
     ///         Simple approach: only the factory-deployed pool can increment.
     function incrementActivePool(address member) external onlyDeployedPool {
-        require(
-            activePoolCount[member] < MAX_ACTIVE_POOLS,
-            "NectarFactory: 3-pool limit reached"
-        );
+        require(activePoolCount[member] < MAX_ACTIVE_POOLS, "NectarFactory: 3-pool limit reached");
         activePoolCount[member]++;
     }
 
